@@ -1,3 +1,5 @@
+> 本地 ChatGPT P0 增强分支：[安装与使用](docs/chatgpt-clipper/usage.md) · [测试与验收状态](docs/chatgpt-clipper/test-report.md)。基于上游开发，非 Obsidian 官方发布版。
+
 Obsidian Web Clipper helps you highlight and capture the web in your favorite browser. Anything you save is stored as durable Markdown files that you can read offline, and preserve for the long term.
 
 - **[Download Web Clipper](https://obsidian.md/clipper)**

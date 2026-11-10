@@ -1,3 +1,5 @@
+import { captureChatGPT } from './providers/chatgpt';
+import { isChatGPTUrl } from './providers/chatgpt/detect';
 import browser from './utils/browser-polyfill';
 import * as highlighter from './utils/highlighter';
 import { removeExistingHighlights } from './utils/highlighter-overlays';
@@ -199,6 +201,20 @@ declare global {
 		}
 
 		if (request.action === "getPageContent") {
+			if (isChatGPTUrl(document.URL)) {
+				try {
+					const chatgptClip = captureChatGPT(document)!;
+					sendResponse({ chatgptClip, content: chatgptClip.markdown, selectedHtml: '',
+						title: document.title, author: '', description: '', domain: location.hostname,
+						extractedContent: {}, favicon: '', fullHtml: '', highlights: [], image: '',
+						language: document.documentElement.lang, parseTime: 0, published: '',
+						schemaOrgData: {}, site: 'ChatGPT', wordCount: 0, metaTags: [] });
+				} catch (error) {
+					sendResponse({ chatgptError: (error as Error).message });
+				}
+				return true;
+			}
+
 			// Flatten shadow DOM before extraction (async, needs main world)
 			const flattenTimeout = new Promise<void>(resolve => setTimeout(resolve, 3000));
 			Promise.race([flattenShadowDom(document), flattenTimeout]).then(async () => {

@@ -144,6 +144,8 @@ module.exports = (env, argv) => {
 							  (isSafari ? "src/manifest.safari.json" : "src/manifest.chrome.json"), 
 						to: "manifest.json" 
 					},
+					{ from: "LICENSE", to: "LICENSE", toType: "file" },
+					{ from: "THIRD_PARTY_NOTICES.md", to: "THIRD_PARTY_NOTICES.md" },
 					{ from: "src/popup.html", to: "popup.html" },
 					{ from: "src/side-panel.html", to: "side-panel.html" },
 					{ from: "src/settings.html", to: "settings.html" },

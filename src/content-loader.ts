@@ -1,3 +1,6 @@
+import { installSelectionCache } from './providers/chatgpt/selection-snapshot';
+
+installSelectionCache();
 import { hasStoredHighlights } from './utils/url-utils';
 
 // Keep the declarative content script intentionally small. The background

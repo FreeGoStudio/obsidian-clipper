@@ -1,3 +1,4 @@
+import { ChatGPTClipResult } from '../providers/chatgpt/types';
 import { ExtractedContent } from '../types/types';
 import { createMarkdownContent } from 'defuddle/full';
 import { sanitizeFileName } from './string-utils';
@@ -43,7 +44,9 @@ function normalizeText(html: string): string {
 	return stripHtml(html).replace(/\s+/g, ' ').trim();
 }
 
-interface ContentResponse {
+export interface ContentResponse {
+	chatgptClip?: ChatGPTClipResult;
+	chatgptError?: string;
 	content: string;
 	selectedHtml: string;
 	extractedContent: ExtractedContent;
@@ -75,6 +78,8 @@ async function sendExtractRequest(tabId: number): Promise<ContentResponse> {
 	if (response && 'success' in response && !response.success && response.error) {
 		throw new Error(response.error);
 	}
+
+	if (response?.chatgptError) return response;
 
 	if (response && response.content) {
 		// Ensure highlights are of the correct type
@@ -141,23 +146,25 @@ export async function initializePageContent(
 	site: string,
 	wordCount: number,
 	language: string,
-	metaTags: { name?: string | null; property?: string | null; content: string | null }[]
+	metaTags: { name?: string | null; property?: string | null; content: string | null }[],
+	chatgptClip?: ChatGPTClipResult
 ) {
 	try {
 		currentUrl = currentUrl.replace(/#:~:text=[^&]+(&|$)/, '');
 
 		let selectedMarkdown = '';
-		if (selectedHtml) {
+		if (!chatgptClip && selectedHtml) {
 			content = selectedHtml;
 			selectedMarkdown = createMarkdownContent(selectedHtml, currentUrl);
 		}
 
 		// Process highlights after getting the base content
-		if (generalSettings.highlighterEnabled && generalSettings.highlightBehavior !== 'no-highlights' && highlights && highlights.length > 0) {
+		if (!chatgptClip && generalSettings.highlighterEnabled && generalSettings.highlightBehavior !== 'no-highlights' && highlights && highlights.length > 0) {
 			content = processHighlights(content, highlights);
 		}
 
-		const markdownBody = createMarkdownContent(content, currentUrl);
+		const markdownBody = chatgptClip ? chatgptClip.markdown : createMarkdownContent(content, currentUrl);
+		if (chatgptClip) selectedMarkdown = chatgptClip.selectionMarkdown;
 
 		const highlightsData = collapseGroupsForExport(highlights, c => createMarkdownContent(c, currentUrl));
 
@@ -167,7 +174,7 @@ export async function initializePageContent(
 			title,
 			author,
 			content: markdownBody,
-			contentHtml: content,
+			contentHtml: chatgptClip ? '' : content,
 			url: currentUrl,
 			fullHtml,
 			description,
@@ -185,7 +192,7 @@ export async function initializePageContent(
 			extractedContent,
 		});
 
-		debugLog('Variables', 'Available variables:', currentVariables);
+		if (!chatgptClip) debugLog('Variables', 'Available variables:', currentVariables);
 
 		return {
 			noteName,

@@ -30,9 +30,12 @@
 		"update-locales": "ts-node --project scripts/tsconfig.json scripts/update-locales.ts",
 		"check-strings": "ts-node --project scripts/tsconfig.json scripts/check-unused-strings.ts",
 		"add-locale": "ts-node --project scripts/tsconfig.json scripts/add-locale.ts",
-		"prepublishOnly": "npm run build:cli && npm run build:api"
+		"prepublishOnly": "npm run build:cli && npm run build:api",
+		"typecheck": "tsc --noEmit --module es2020",
+		"test:browser": "node scripts/test-chatgpt-browser.mjs"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.65.0",
 		"@types/chrome": "^0.0.270",
 		"@types/dompurify": "^3.0.5",
 		"@types/node": "^25.4.0",

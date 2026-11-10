@@ -1,3 +1,6 @@
+import { ChatGPTClipResult, withScope } from '../providers/chatgpt/types';
+import { renderChatGPTControls } from '../providers/chatgpt/popup-controls';
+import { isChatGPTUrl } from '../providers/chatgpt/detect';
 import dayjs from 'dayjs';
 import { Template, Property, PromptVariable } from '../types/types';
 import { incrementStat, addHistoryEntry, getClipHistory } from '../utils/storage-utils';
@@ -32,6 +35,8 @@ interface ReaderModeResponse {
 let loadedSettings: Settings;
 let currentTemplate: Template | null = null;
 let templates: Template[] = [];
+let currentChatGPT: ChatGPTClipResult | undefined;
+let chatgptBlocked = false;
 let currentVariables: { [key: string]: string } = {};
 let currentTabId: number | undefined;
 let lastSelectedVault: string | null = null;
@@ -245,6 +250,14 @@ function setupStorageListeners() {
 function setupMessageListeners() {
 	browser.runtime.onMessage.addListener((request: any, sender: browser.Runtime.MessageSender, sendResponse: (response?: any) => void) => {
 		if (request.action === "triggerQuickClip") {
+			// ChatGPT clips must be reviewed and explicitly saved from the preview.
+			if (currentTabId !== undefined) {
+				getTabInfo(currentTabId).then(tab => {
+					if (isChatGPTUrl(tab.url || '')) sendResponse({ success: false, error: '请在预览中点击保存。' });
+					else handleClipObsidian().then(() => sendResponse({ success: true })).catch(error => sendResponse({ success: false, error: error.message }));
+				}).catch(error => sendResponse({ success: false, error: error.message }));
+				return true;
+			}
 			handleClipObsidian().then(() => {
 				sendResponse({success: true});
 			}).catch((error) => {
@@ -623,7 +636,7 @@ function clearError(): void {
 
 	if (errorMessage && clipper) {
 		errorMessage.style.display = 'none';
-		clipper.style.display = 'block';
+		clipper.style.display = 'flex';
 
 		document.body.classList.remove('has-error');
 	}
@@ -699,6 +712,12 @@ async function refreshFields(tabId: number, { checkTemplateTriggers = true, rebu
 		}
 
 		const extractedData = await extractionPromise;
+		currentChatGPT = extractedData?.chatgptClip;
+		chatgptBlocked = isChatGPTUrl(tab.url) && (!currentChatGPT || !!extractedData?.chatgptError);
+		renderChatGPTControls(undefined, async () => {});
+		if (extractedData?.chatgptError) throw new Error(extractedData.chatgptError);
+		if (chatgptBlocked) throw new Error('请先在同一条助手回答内选中文字。');
+		clearError();
 		if (extractedData) {
 			const currentUrl = tab.url;
 
@@ -719,17 +738,20 @@ async function refreshFields(tabId: number, { checkTemplateTriggers = true, rebu
 				extractedData.site,
 				extractedData.wordCount,
 				extractedData.language || '',
-				extractedData.metaTags
+				extractedData.metaTags,
+				currentChatGPT
 			);
 			if (initializedContent) {
 				currentVariables = initializedContent.currentVariables;
-				console.log('Updated currentVariables:', currentVariables);
+				if (!currentChatGPT) console.log('Updated currentVariables:', currentVariables);
 				await fillTemplateFieldValues(
 					tabId,
 					currentTemplate,
 					initializedContent.currentVariables,
 					extractedData.schemaOrgData
 				);
+
+				renderChatGPTControls(currentChatGPT, changeChatGPTScope);
 
 				// Update variables panel if it's open
 				updateVariablesPanel(currentTemplate, currentVariables);
@@ -744,6 +766,19 @@ async function refreshFields(tabId: number, { checkTemplateTriggers = true, rebu
 		const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
 		showError(errorMessage);
 	}
+}
+
+async function changeChatGPTScope(scope: 'selection' | 'answer'): Promise<void> {
+	if (!currentChatGPT || currentTabId === undefined || !currentTemplate) return;
+	try {
+		currentChatGPT = withScope(currentChatGPT, scope);
+		currentVariables['{{content}}'] = currentChatGPT.markdown;
+		currentVariables['{{selection}}'] = currentChatGPT.selectionMarkdown;
+		const field = document.getElementById('note-content-field') as HTMLTextAreaElement;
+		if (field) field.value = await compileTemplate(currentTabId, currentTemplate.noteContentFormat, currentVariables, currentChatGPT.sourceUrl);
+		renderChatGPTControls(currentChatGPT, changeChatGPTScope);
+		updateVariablesPanel(currentTemplate, currentVariables);
+	} catch (error) { showError((error as Error).message); }
 }
 
 function updateTemplateDropdown() {
@@ -967,7 +1002,7 @@ async function fillTemplateFieldValues(currentTabId: number, template: Template 
 		}
 	}
 
-	if (isDebugMode()) {
+	if (isDebugMode() && !currentChatGPT) {
 		const replacedTemplate = await getReplacedTemplate(template, variables, currentTabId!, currentUrl);
 		debugLog('Variables', 'Current template with replaced variables:', JSON.stringify(replacedTemplate, null, 2));
 	}
@@ -1313,6 +1348,11 @@ function determineMainAction() {
 
 async function handleClipObsidian(): Promise<void> {
 	if (!currentTemplate) return;
+	const currentUrl = currentTabId !== undefined ? (await getTabInfo(currentTabId)).url || '' : '';
+	if (isChatGPTUrl(currentUrl) && (chatgptBlocked || !currentChatGPT || currentChatGPT.sourceUrl !== currentUrl)) {
+		showError('请重新选择同一条助手回答内的内容，再打开摘录。');
+		return;
+	}
 
 	const vaultDropdown = document.getElementById('vault-select') as HTMLSelectElement;
 	const noteContentField = document.getElementById('note-content-field') as HTMLTextAreaElement;
@@ -1322,6 +1362,11 @@ async function handleClipObsidian(): Promise<void> {
 
 	if (!vaultDropdown || !noteContentField) {
 		showError('Some required fields are missing. Please try reloading the extension.');
+		return;
+	}
+
+	if (currentChatGPT && !noteContentField.value.trim()) {
+		showError('正文为空，请选择内容后再保存。');
 		return;
 	}
 

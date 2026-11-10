@@ -32,14 +32,14 @@ async function tryClipboardWrite(fileContent: string, obsidianUrl: string): Prom
 		// content is a fallback shown only if Obsidian can't access the clipboard (e.g. on Linux).
 		obsidianUrl += `&clipboard&content=${encodeURIComponent(getMessage('clipboardError', 'https://help.obsidian.md/web-clipper/troubleshoot'))}`;
 		openObsidianUrl(obsidianUrl);
-		console.log('Obsidian URL:', obsidianUrl);
+		console.log('Opened Obsidian URI');
 	} else {
 		console.error('All clipboard methods failed, falling back to URI method');
 		// Final fallback: use URI method with actual content (same as legacy mode)
 		// Note: We don't add &clipboard here since we're bypassing the clipboard entirely
 		obsidianUrl += `&content=${encodeURIComponent(fileContent)}`;
 		openObsidianUrl(obsidianUrl);
-		console.log('Obsidian URL (URI fallback):', obsidianUrl);
+		console.log('Opened Obsidian URI fallback');
 	}
 }
 
@@ -85,7 +85,7 @@ export async function saveToObsidian(
 	if (generalSettings.legacyMode) {
 		// Use the URI method
 		obsidianUrl += `&content=${encodeURIComponent(fileContent)}`;
-		console.log('Obsidian URL:', obsidianUrl);
+		console.log('Opened Obsidian URI');
 		openObsidianUrl(obsidianUrl);
 	} else {
 		// Try to copy to clipboard with fallback mechanisms

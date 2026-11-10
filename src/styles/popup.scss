@@ -6,6 +6,17 @@
 	--chromium-popup-height: 540px;
 }
 
+#chatgpt-controls {
+	padding: 8px var(--popup-padding);
+	display: grid;
+	gap: 6px;
+	flex-shrink: 0;
+	select { width: 100%; }
+	small { color: var(--text-muted); }
+	p { margin: 0; font-size: var(--font-ui-small); }
+	p:empty { display: none; }
+}
+
 .is-safari,
 .is-mobile-safari,
 .is-firefox-mobile {

@@ -1,0 +1,16 @@
+{
+	"schemaVersion": "0.1.0",
+	"name": "ChatGPT",
+	"behavior": "create",
+	"noteNameFormat": "{{title}}",
+	"path": "Clips/ChatGPT",
+	"noteContentFormat": "> [!source] 对话来源\n> [打开原 ChatGPT 对话]({{url}})\n\n{{content}}",
+	"properties": [
+		{ "name": "title", "value": "{{title}}", "type": "text" },
+		{ "name": "source", "value": "{{url}}", "type": "text" },
+		{ "name": "source_type", "value": "chatgpt", "type": "text" },
+		{ "name": "created", "value": "{{date|date:\"YYYY-MM-DDTHH:mm:ssZ\"}}", "type": "datetime" },
+		{ "name": "tags", "value": "chatgpt", "type": "multitext" }
+	],
+	"triggers": []
+}
